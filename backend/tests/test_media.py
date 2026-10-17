@@ -190,3 +190,24 @@ def test_evidence_limit_fails_without_truncated_verdict(media_settings, rule):
     media_settings.max_evidence_bytes = 1
     with pytest.raises(MediaError, match="size limit"):
         process_job(job, media_settings, FixtureDetector(), lambda _: None)
+
+
+def test_binary_positive_is_not_changed_to_negative_or_given_a_legal_rule(media_settings, rule):
+    from backend.app.schemas.job import validate_result
+
+    class BinaryFixture:
+        supports_binary_candidates = True
+
+        def analyze_windows(self, windows, rules, deadline):
+            frames = windows[0]["frames"][1:4]
+            return [{"kind": "binary_candidate", "rule_id": None, "event_key": "synthetic-binary-point",
+                     "frame_ids": [frame["id"] for frame in frames], "anchor_frame_id": frames[1]["id"],
+                     "observation": "Synthetic classifier candidate; no banking category or rule asserted."}]
+
+    job = new_job(media_settings, rule)
+    result = validate_result(process_job(job, media_settings, BinaryFixture(), lambda _: None), job, media_settings)
+    assert result["verdict"] == "violation" and len(result["events"]) == 1
+    event = result["events"][0]
+    assert event["rule"] is None and event["type"] == "Possible violation (unclassified)"
+    assert event["timecode_sec"] == pytest.approx(1.0)
+    assert len(event["evidence_frames"]) == 3

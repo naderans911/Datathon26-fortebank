@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,6 +25,8 @@ class Observation(BaseModel):
     observation: str = Field(min_length=1, max_length=1200)
     # A visible-object/action discriminator permits distinct simultaneous events.
     event_key: str = Field(min_length=1, max_length=100)
+    kind: Literal["observation", "binary_candidate"] = "observation"
+    anchor_frame_id: str | None = None
 
 
 class ModelOutput(BaseModel):
@@ -44,7 +46,8 @@ def remaining(deadline: float, maximum: float = 60.0) -> float:
     return min(seconds, maximum)
 
 
-def validate_observations(values: list[dict], frames: list[dict], rules: list[dict], max_events: int = 24) -> list[dict]:
+def validate_observations(values: list[dict], frames: list[dict], rules: list[dict], max_events: int = 24,
+                          *, allow_binary_candidates: bool = False) -> list[dict]:
     if not isinstance(values, list) or len(values) > max_events:
         raise DetectionError("Detector output exceeded the configured event limit; no partial verdict was saved")
     frame_map = {frame["id"]: frame for frame in frames}
@@ -57,12 +60,16 @@ def validate_observations(values: list[dict], frames: list[dict], rules: list[di
             raise DetectionError("The detector returned invalid structured observations") from exc
         if observation["rule_id"] is not None and observation["rule_id"] not in rule_ids:
             raise DetectionError("The detector referenced an unknown or inactive rule")
+        if observation["kind"] == "binary_candidate" and (not allow_binary_candidates or observation["rule_id"] is not None):
+            raise DetectionError("Only the binary detector may return an unclassified candidate without a rule assertion")
         ids = observation["frame_ids"]
         if len(ids) != len(set(ids)) or any(frame_id not in frame_map for frame_id in ids):
             raise DetectionError("The detector referenced unknown or duplicate frames")
         timestamps = [frame_map[frame_id]["timestamp_sec"] for frame_id in ids]
         if timestamps != sorted(timestamps):
             raise DetectionError("The detector returned frames in invalid temporal order")
+        if observation["anchor_frame_id"] is not None and observation["anchor_frame_id"] not in ids:
+            raise DetectionError("The detector anchor must reference a supplied evidence frame")
         validated.append(observation)
     return validated
 

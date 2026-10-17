@@ -40,10 +40,14 @@ def validate_result(result: dict, job: dict, settings) -> dict:
         for field in ("type", "observation", "interpretation"):
             if not isinstance(event.get(field), str) or not event[field].strip():
                 raise ValueError("Missing event explanation")
-        rule = event.get("rule", {})
-        rule_id = rule.get("id")
-        if rule_id not in known_rules or rule != known_rules[rule_id]:
-            raise ValueError("Event rule is not the accepted rule snapshot")
+        rule = event.get("rule")
+        if event.get("kind") == "binary_candidate":
+            if rule is not None or event["type"] != "Possible violation (unclassified)":
+                raise ValueError("Binary findings must remain unclassified without an asserted legal rule")
+        else:
+            rule_id = rule.get("id") if isinstance(rule, dict) else None
+            if rule_id not in known_rules or rule != known_rules[rule_id]:
+                raise ValueError("Event rule is not the accepted rule snapshot")
         frames = event.get("evidence_frames")
         if not isinstance(frames, list) or not 1 <= len(frames) <= 3:
             raise ValueError("Events require one to three actual evidence frames")

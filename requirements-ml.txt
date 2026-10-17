@@ -1,8 +1,9 @@
-# Local CV detector (all permissive licenses: BSD / Apache-2.0)
-torch>=2.6
-transformers>=4.50
-huggingface_hub>=0.30
-scikit-learn>=1.5
-numpy>=2.0
-joblib>=1.4
-openpyxl>=3.1
+# Install torch==2.9.1 and torchvision==0.24.1 first from the official CPU wheel index.
+# Model artifacts stay local. Workbook import is separately available without ML.
+transformers==4.57.3
+huggingface_hub==0.36.0
+scikit-learn==1.9.1
+numpy==2.3.5
+joblib==1.5.2
+safetensors==0.6.2
+-r requirements-training.txt

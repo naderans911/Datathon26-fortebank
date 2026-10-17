@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     jury_api_key: str = Field(default="", repr=False)
     detector_backend: Literal["unconfigured", "ollama", "cv"] = "unconfigured"
     cv_model_dir: Path = Path("./models")
+    cv_scorer_dir: Path | None = None
     cv_device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
     cv_threshold: float | None = Field(None, gt=0, lt=1)
     ollama_base_url: str = "http://127.0.0.1:11434"
@@ -47,15 +48,15 @@ class Settings(BaseSettings):
     max_evidence_bytes: int = Field(12 * 1024 * 1024, ge=1024)
     sample_width: int = Field(640, ge=160, le=1920)
 
-    @field_validator("retention_hours", mode="before")
+    @field_validator("retention_hours", "cv_scorer_dir", mode="before")
     @classmethod
     def empty_retention(cls, value):
         return None if value == "" else value
 
-    @field_validator("storage_dir", "rules_file", "frontend_dist", "cv_model_dir")
+    @field_validator("storage_dir", "rules_file", "frontend_dist", "cv_model_dir", "cv_scorer_dir")
     @classmethod
-    def absolute_paths(cls, value: Path) -> Path:
-        return value.resolve()
+    def absolute_paths(cls, value: Path | None) -> Path | None:
+        return value.resolve() if value is not None else None
 
     @model_validator(mode="after")
     def deployment_requirements(self):

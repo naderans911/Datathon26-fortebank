@@ -54,6 +54,16 @@ class SlowDetector(TestDetector):
         return []
 
 
+class BinaryTestDetector(TestDetector):
+    supports_binary_candidates = True
+
+    def analyze_windows(self, windows, rules, deadline):
+        frame_ids = [frame["id"] for frame in windows[0]["frames"][:3]]
+        return [{"rule_id": None, "kind": "binary_candidate", "frame_ids": frame_ids,
+                 "anchor_frame_id": frame_ids[-1], "observation": "A generated shape moves in the synthetic clip.",
+                 "event_key": "synthetic-binary-candidate"}]
+
+
 def tool(name):
     configured = os.getenv(f"{name.upper()}_BINARY") or shutil.which(name)
     if configured:
@@ -190,6 +200,33 @@ def test_corrupt_and_malformed_model_output_are_failed(media_settings, tmp_path)
             assert str(tmp_path) not in json.dumps(result)
 
 
+def test_unclassified_binary_candidate_keeps_exact_judge_contract(media_settings, tmp_path):
+    detector = BinaryTestDetector()
+    with client_for(media_settings, detector) as client:
+        response = upload(client, media_settings, synthetic_video(media_settings, tmp_path))
+        assert response.status_code == 202
+        job_id = response.json()["job_id"]
+        assert process_once(media_settings, detector, supervised=False)
+        response = client.get(f"/api/v1/jobs/{job_id}", headers=auth(media_settings))
+        assert response.status_code == 200
+        result = response.json()
+        assert set(result) == {"job_id", "status", "verdict", "violations"}
+        assert result["status"] == "done" and result["verdict"] == "violation"
+        assert len(result["violations"]) == 1
+        event = result["violations"][0]
+        assert set(event) == {"type", "timecode_sec", "description", "evidence_frames"}
+        assert event["type"] == "Possible violation (unclassified)"
+        assert "No verified rule mapping or legal basis has been established." in event["description"]
+        assert "Test-only procedure" not in event["description"]
+        assert event["timecode_sec"] == event["evidence_frames"][-1]["timestamp_sec"]
+        stored = client.app.state.store.get(job_id)["result"]["events"][0]
+        assert stored["kind"] == "binary_candidate" and stored["rule"] is None
+        for frame in event["evidence_frames"]:
+            assert set(frame) == {"timestamp_sec", "image_base64"}
+            with Image.open(io.BytesIO(base64.b64decode(frame["image_base64"], validate=True))) as image:
+                image.verify()
+
+
 def test_sessions_csrf_origin_and_job_ownership(settings):
     with client_for(settings) as first, client_for(settings) as second:
         first_headers = ui_session(first)
@@ -273,7 +310,8 @@ def test_demo_disabled_and_isolated_from_judge(media_settings):
 
 
 def test_supervised_deadline_stops_underlying_descendant(media_settings, tmp_path):
-    settings = media_settings.model_copy(update={"job_deadline_seconds": 4})
+    # Windows spawn plus real FFmpeg startup must finish before testing termination.
+    settings = media_settings.model_copy(update={"job_deadline_seconds": 12})
     pid_file = tmp_path / "descendant.pid"
     detector = SlowDetector(pid_file)
     with client_for(settings, detector) as client:
@@ -283,7 +321,7 @@ def test_supervised_deadline_stops_underlying_descendant(media_settings, tmp_pat
         elapsed = time.monotonic() - started
         data = client.get(f"/api/v1/jobs/{job_id}", headers=auth(settings)).json()
         assert data["status"] == "failed" and data["error"]["code"] == "deadline_exceeded"
-        assert elapsed < 10
+        assert elapsed < 18
         assert pid_file.exists(), "The injected detector must run before this deadline test is meaningful"
         assert not psutil.pid_exists(int(pid_file.read_text()))
 

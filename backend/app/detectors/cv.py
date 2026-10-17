@@ -1,130 +1,93 @@
-"""Fully local computer-vision detector (no LLM, no network).
-
-1. Per sampled frame: RT-DETR COCO objects + DINOv2 scene embedding (backend/app/ml/features.py).
-2. Learned temporal scorer (models/scorer.joblib, trained by scripts/train.py) finds
-   moments resembling labelled violations; a type head maps them to a violation type.
-3. Transparent heuristics add events the scorer may miss (e.g. a phone in the cash zone).
-
-Every event is mapped to a verified rule via config/violation_types.json. The
-detector only describes what is visible; it never asserts invisible facts.
-"""
+"""Local binary visual scoring; no filename lookup, inferred legal type or LLM."""
 from __future__ import annotations
 
-import json
+import time
 from pathlib import Path
 
 from .base import DetectionError
 
-TYPES_FILE = Path(__file__).resolve().parents[3] / "config" / "violation_types.json"
-
-
-def load_types() -> dict:
-    try:
-        return json.loads(TYPES_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {"types": {}, "default_type": None}
-
-
-def _evidence(indices: list[int], frames: list[dict]) -> list[str]:
-    unique = sorted(set(indices), key=lambda i: frames[i]["timestamp_sec"])
-    if len(unique) > 3:
-        unique = [unique[0], unique[len(unique) // 2], unique[-1]]
-    return [frames[i]["id"] for i in unique]
-
 
 class CVDetector:
+    supports_binary_candidates = True
+
     def __init__(self, settings):
         self.settings = settings
         self.model_dir = Path(settings.cv_model_dir)
-        self.provenance = {"name": "cv-local", "model": "rtdetr_r18vd+dinov2-small+scorer", "adapter_version": "1",
-                           "digest": None}
+        self.scorer_dir = Path(getattr(settings, "cv_scorer_dir", None) or self.model_dir)
+        self.provenance = {"name": "cv-local", "model": "rtdetr_r18vd+dinov2-small+binary-scorer",
+                           "adapter_version": "2", "classification_available": False,
+                           "event_boundaries_available": False, "accuracy_validated": False}
 
     def readiness(self) -> dict:
-        from backend.app.ml.features import models_present
-        from backend.app.ml.scorer import SCORER_FILE
-        messages = []
-        try:
-            import torch  # noqa: F401
-            import transformers  # noqa: F401
-        except ImportError:
-            messages.append("Install the ML requirements (requirements-ml.txt).")
-        if not models_present(self.model_dir):
-            messages.append("Local model weights are missing: run scripts/download_models.py once.")
-        if not (self.model_dir / SCORER_FILE).is_file():
-            messages.append("No trained scorer yet: run scripts/train.py (heuristics-only mode).")
-        ready = not any("missing" in m or "Install" in m for m in messages)
-        return {"ready": ready, "name": "cv-local", "model_available": ready,
-                "message": messages[0] if messages else "Local CV detector ready.", "messages": messages}
+        # No Torch, NumPy, sklearn or model imports/loads in the API process.
+        from backend.app.ml.features import artifacts_status, missing_dependencies
+        from backend.app.ml.scorer import SCORER_FILE, SCORER_MANIFEST
+        messages, missing = [], missing_dependencies()
+        artifacts = artifacts_status(self.model_dir)
+        scorer_path = self.scorer_dir / SCORER_FILE
+        scorer_exists = scorer_path.is_file() and 0 < scorer_path.stat().st_size <= 128 * 1024 * 1024
+        if missing:
+            messages.append("Install the pinned local ML requirements before enabling CV analysis.")
+        if not artifacts["ready"]:
+            messages.append("Complete local RT-DETR and DINOv2 weights/configuration are missing or invalid.")
+        if not scorer_exists:
+            messages.append("A trained local binary scorer is required; missing detection logic cannot return a clean result.")
+        if scorer_exists and not (self.scorer_dir / SCORER_MANIFEST).is_file():
+            messages.append("The existing local scorer has legacy provenance; quality and training supervision are unvalidated.")
+        messages.append("Binary findings remain unclassified. Event categories and legal mappings require human review.")
+        ready = not missing and artifacts["ready"] and scorer_exists
+        return {"ready": ready, "name": "cv-local", "model_available": artifacts["ready"] and scorer_exists,
+                "message": messages[0], "messages": messages}
 
     def analyze_windows(self, windows: list[dict], rules: list[dict], deadline: float) -> list[dict]:
-        from backend.app.ml.features import extract
+        from backend.app.ml.features import extract, load_models
         from backend.app.ml.scorer import Scorer, build_matrix, peaks
-
         seen, frames = set(), []
         for window in windows:
             for frame in window["frames"]:
                 if frame["id"] not in seen:
                     seen.add(frame["id"])
                     frames.append(frame)
-        frames.sort(key=lambda f: f["timestamp_sec"])
+        frames.sort(key=lambda frame: frame["timestamp_sec"])
         if len(frames) < 2:
-            raise DetectionError("Too few frames were sampled for analysis")
+            raise DetectionError("Too few source frames were sampled for binary visual analysis")
         try:
-            features = extract([f["path"] for f in frames], self.model_dir, self.settings.cv_device, deadline)
+            if time.time() >= deadline:
+                raise TimeoutError
+            scorer = Scorer.load(self.scorer_dir)
+            # All supplied frames are actually observed; no stale object carry-forward.
+            features = extract([frame["path"] for frame in frames], self.model_dir,
+                               self.settings.cv_device, deadline, batch_size=1, det_stride=1)
+            artifacts = load_models(self.model_dir, self.settings.cv_device, deadline)["artifacts"]
+            if scorer.vision_artifacts is not None and (
+                {name: data.get("sha256") for name, data in scorer.vision_artifacts.items()}
+                != {name: data.get("sha256") for name, data in artifacts.items()}
+            ):
+                raise ValueError("Scorer training artifacts do not match the installed vision models")
+            timestamps = [frame["timestamp_sec"] for frame in frames]
+            matrix = build_matrix(features, timestamps, scorer.feature_version)
+            scores = scorer.predict(matrix)
+            threshold = self.settings.cv_threshold if self.settings.cv_threshold is not None else scorer.threshold
+            candidates = peaks(scores, timestamps, threshold)
+            if len(candidates) > getattr(self.settings, "max_events", 24):
+                raise DetectionError("Detected events exceed the configured limit; no partial verdict was saved")
+            self.provenance.update(scorer.provenance)
+            self.provenance["artifacts"] = artifacts
+            if time.time() >= deadline:
+                raise TimeoutError
         except TimeoutError as exc:
             raise DetectionError("The analysis deadline was exceeded") from exc
-        except Exception as exc:  # model/runtime failure must not leak details
-            raise DetectionError("The local vision models failed to run") from exc
-
-        rule_ids = {rule["id"] for rule in rules}
-        config = load_types()
-        types = config.get("types", {})
-        timestamps = [f["timestamp_sec"] for f in frames]
-        observations: list[dict] = []
-
-        def add(type_name: str | None, indices: list[int], detail: str, key: str):
-            spec = types.get(type_name or "") or types.get(config.get("default_type") or "", {})
-            rule_id = spec.get("rule_id")
-            if rule_id not in rule_ids:
-                rule_id = None  # pipeline reports it as unmapped, never as a violation
-            text = (spec.get("observation") or "Обнаружено действие, похожее на нарушение.") + " " + detail
-            observations.append({"rule_id": rule_id, "frame_ids": _evidence(indices, frames),
-                                 "observation": text.strip()[:1200], "event_key": key[:100]})
-
-        scorer = Scorer.load(self.model_dir)
-        if scorer is not None:
-            matrix = build_matrix(features, timestamps)
-            prob = scorer.predict(matrix)
-            threshold = self.settings.cv_threshold or scorer.threshold
-            for number, event in enumerate(peaks(prob, timestamps, threshold)):
-                type_name, confidence = scorer.classify(matrix[event["peak"]])
-                type_name = type_name or scorer.default_type
-                detail = (f"Фрагмент {timestamps[event['start']]:.1f}–{timestamps[event['end']]:.1f} с; "
-                          f"уверенность модели {event['score']:.0%}.")
-                add(type_name, [event["peak"], event["start"], event["end"]], detail, f"scorer-{number}")
-
-        observations.extend(self._heuristics(features, frames, types, rule_ids))
-        return observations[: getattr(self.settings, "max_events", 24)]
-
-    def _heuristics(self, features: list[dict], frames: list[dict], types: dict, rule_ids: set) -> list[dict]:
-        """Phone visible for >= 2 consecutive samples -> communication device in the cash zone."""
-        spec = types.get("phone_in_cash_zone")
-        if not spec or spec.get("rule_id") not in rule_ids or not spec.get("heuristic", True):
-            return []
-        hits = [i for i, f in enumerate(features)
-                if any(o["label"] == "cell phone" and o["score"] >= spec.get("min_score", 0.6) for o in f["objects"])]
-        runs: list[list[int]] = []
-        for i in hits:
-            if runs and i - runs[-1][-1] <= 1:
-                runs[-1].append(i)
-            else:
-                runs.append([i])
-        out = []
-        for number, run in enumerate(r for r in runs if len(r) >= 2):
-            mid = run[len(run) // 2]
-            out.append({"rule_id": spec["rule_id"], "frame_ids": _evidence([run[0], mid, run[-1]], frames),
-                        "observation": (spec["observation"] + f" Телефон виден в кадре "
-                                        f"{frames[run[0]]['timestamp_sec']:.1f}–{frames[run[-1]]['timestamp_sec']:.1f} с.")[:1200],
-                        "event_key": f"phone-{number}"})
-        return out
-
+        except DetectionError:
+            raise
+        except Exception as exc:
+            raise DetectionError("The local binary vision model failed or its feature schema is incompatible") from exc
+        observations = []
+        for number, candidate in enumerate(candidates):
+            peak = candidate["peak"]
+            indices = sorted({max(0, peak - 1), peak, min(len(frames) - 1, peak + 1)})
+            observations.append({"kind": "binary_candidate", "rule_id": None,
+                "frame_ids": [frames[index]["id"] for index in indices], "anchor_frame_id": frames[peak]["id"],
+                "observation": ("The local visual classifier flagged this sampled moment for human review. "
+                                f"Model score {candidate['score']:.3f} is uncalibrated; it does not identify a visible action or legal violation."),
+                "event_key": f"binary-candidate-{number}"})
+        return observations

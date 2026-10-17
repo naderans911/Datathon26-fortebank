@@ -142,12 +142,16 @@ def judge_job(job_id: str, request: Request):
             for frame in event["evidence_frames"]:
                 path = media_path(request.app.state.settings.storage_dir / "jobs" / job_id, frame["filename"])
                 frames.append({"timestamp_sec": frame["timestamp_sec"], "image_base64": base64.b64encode(path.read_bytes()).decode("ascii")})
-            rule = event["rule"]
-            reference = rule.get("document_title", "")
-            if rule.get("section_or_paragraph"):
-                reference += f", {rule['section_or_paragraph']}"
+            rule = event.get("rule")
+            if rule is None:
+                source_description = "No verified rule mapping or legal basis has been established."
+            else:
+                reference = rule.get("document_title", "")
+                if rule.get("section_or_paragraph"):
+                    reference += f", {rule['section_or_paragraph']}"
+                source_description = f"Source: {reference}."
             violations.append({"type": event["type"], "timecode_sec": event["timecode_sec"],
-                "description": f"Observation: {event['observation']} Interpretation: {event['interpretation']} Source: {reference}. Human review required.",
+                "description": f"Observation: {event['observation']} Interpretation: {event['interpretation']} {source_description} Human review required.",
                 "evidence_frames": frames})
     except (OSError, ValueError):
         raise HTTPException(503, detail={"code": "evidence_unavailable", "message": "Stored evidence is unavailable. The completed result cannot be served."}) from None
