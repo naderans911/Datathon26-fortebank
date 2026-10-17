@@ -1,7 +1,13 @@
 import type { Rule } from '../lib/types'
 import { t } from '../locales/en'
 import { Icon } from './Icon'
-export function RuleSource({ rule }: { rule: Rule }) {
+export function RuleSource({ rule }: { rule: Rule | null }) {
+  if (!rule)
+    return (
+      <div className="rule-source">
+        <p>{t.noVerifiedMapping}</p>
+      </div>
+    )
   const safeUrl = rule.source_url && /^https?:\/\//.test(rule.source_url) ? rule.source_url : null
   return (
     <div className="rule-source">

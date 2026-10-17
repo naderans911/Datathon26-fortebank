@@ -1,5 +1,14 @@
 # Validation record
 
+## Actual-label and local-review update
+
+- Actual-format importer/resolver/validation: **53 synthetic tests passed**, including generated XLSX and MOV fixtures. Russian timestamps, null negatives, unknown labels, preserved Unicode, exact-before-alias matching, ambiguity/duplicate rejection, numbering gaps, source comparison and timestamp bounds are covered.
+- Separate local annotation server: **16 tests passed**, including loopback/Host/Origin/forwarded-request restrictions, session/CSRF, persistent multi-event saves, stale-revision rejection, media range access and path boundaries.
+- Frontend: **15 component tests passed**, TypeScript/ESLint/format and production build passed. Isolated local-review browser tests **2 passed** at desktop/mobile widths; existing upload/results browser regression **4 passed**.
+- Synthetic review screenshots were inspected at both widths. No organizer workbook, real footage or video-derived descriptions were read for these tests. Real-data matching, duration and annotation review remain local operator work.
+
+The original foundation record follows. New inference/runtime validation is recorded separately when completed.
+
 Validated on Windows with Python 3.13.0, Node.js 24.19.0, npm 11.17.0 and a checksum-verified FFmpeg/ffprobe 9.0.2 build. All video inputs were locally generated synthetic fixtures. No competition footage or observations were inspected or transmitted.
 
 | Check | Result |

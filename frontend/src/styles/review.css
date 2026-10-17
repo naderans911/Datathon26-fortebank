@@ -1,0 +1,227 @@
+.review-page {
+  display: grid;
+  gap: 22px;
+}
+.review-page .page-heading {
+  display: grid;
+  gap: 12px;
+  max-width: 860px;
+}
+.review-page .page-heading > p:last-child {
+  color: var(--text-secondary);
+}
+.review-page .notice {
+  margin: 0;
+}
+.review-notice {
+  padding: 24px;
+}
+.annotation-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.review-catalog {
+  padding: 20px;
+  position: sticky;
+  top: 100px;
+}
+.review-catalog h2 {
+  margin-bottom: 20px;
+}
+.review-records {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 18px -20px -20px;
+}
+.review-record {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 16px 20px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-primary);
+  border-left: 3px solid transparent;
+}
+.review-record.selected {
+  background: var(--brand-soft);
+  border-left-color: var(--brand-primary);
+}
+.review-record strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.review-record span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.annotation-main {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.review-player {
+  overflow: hidden;
+}
+.review-player > .section-title {
+  padding: 20px 24px;
+}
+.review-player h2 {
+  overflow-wrap: anywhere;
+}
+.review-source {
+  background: var(--surface-muted);
+  padding: 20px 24px;
+  font-size: 14px;
+}
+.review-source > strong {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.review-source dl {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.review-source dt {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.review-source dd {
+  margin: 4px 0 0;
+  font-weight: 600;
+}
+.review-source p {
+  color: var(--text-secondary);
+}
+.review-playback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px 24px;
+}
+.review-preview-status {
+  padding: 12px 24px 0;
+  color: var(--text-secondary);
+}
+.annotation-editor {
+  padding: 24px;
+}
+.annotation-editor > .section-title {
+  align-items: start;
+  gap: 20px;
+}
+.annotation-editor > .section-title p {
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+.annotation-editor > .section-title > button {
+  flex-shrink: 0;
+}
+.annotation-fields {
+  min-width: 0;
+  padding: 0;
+  margin: 24px 0;
+  border: 0;
+  display: grid;
+  gap: 24px;
+}
+.annotation-event {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  display: grid;
+  gap: 18px;
+}
+.review-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+.review-field input,
+.review-field textarea,
+.review-field select {
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  font-weight: 400;
+}
+.review-field textarea {
+  resize: vertical;
+}
+.review-field textarea:focus-visible,
+.review-field select:focus-visible {
+  outline: 3px solid var(--brand-primary);
+  outline-offset: 3px;
+}
+.review-field small,
+.field-hint {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.boundary-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.annotation-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.annotation-save [role='status'] {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+@media (max-width: 1000px) {
+  .annotation-layout {
+    grid-template-columns: 1fr;
+  }
+  .review-catalog {
+    position: static;
+  }
+  .review-records {
+    max-height: 220px;
+  }
+}
+@media (max-width: 600px) {
+  .boundary-fields {
+    grid-template-columns: 1fr;
+  }
+  .annotation-editor,
+  .annotation-event {
+    padding: 16px;
+  }
+  .annotation-editor > .section-title {
+    flex-direction: column;
+  }
+  .annotation-save .primary {
+    width: 100%;
+  }
+  .review-player > .section-title {
+    align-items: start;
+    flex-direction: column;
+  }
+  .review-source,
+  .review-playback {
+    padding: 18px;
+  }
+}

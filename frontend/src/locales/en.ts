@@ -8,6 +8,9 @@ export const t = {
   navAnalyze: 'Analyze video',
   navRules: 'Rules & sources',
   navStatus: 'System status',
+  navReview: 'Local annotations',
+  noVerifiedMapping:
+    'No verified rule mapping; human review required. Category and legal basis remain unreviewed.',
   navLabel: 'Main navigation',
   navToggle: 'Toggle navigation',
   skip: 'Skip to content',

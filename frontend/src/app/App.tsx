@@ -7,45 +7,65 @@ import { AnalysisPage } from '../pages/AnalysisPage'
 import { RulesPage } from '../pages/RulesPage'
 import { StatusPage } from '../pages/StatusPage'
 import { DemoPage } from '../pages/DemoPage'
+import { ReviewPage } from '../pages/ReviewPage'
+import { isLocalReviewHost } from '../lib/review'
+import { reviewText } from '../locales/review'
 import { t } from '../locales/en'
 function Shell() {
+  const localReview = isLocalReviewHost()
   const [open, setOpen] = useState(false)
   const { status, error } = useStatus()
   const location = useLocation()
-  const title = location.pathname.startsWith('/rules')
-    ? t.navRules
-    : location.pathname.startsWith('/status')
-      ? t.navStatus
-      : location.pathname.startsWith('/analysis')
-        ? t.resultTitle
-        : location.pathname.startsWith('/demo')
-          ? t.synthetic
-          : t.navAnalyze
+  const title =
+    localReview || location.pathname.startsWith('/review')
+      ? t.navReview
+      : location.pathname.startsWith('/rules')
+        ? t.navRules
+        : location.pathname.startsWith('/status')
+          ? t.navStatus
+          : location.pathname.startsWith('/analysis')
+            ? t.resultTitle
+            : location.pathname.startsWith('/demo')
+              ? t.synthetic
+              : t.navAnalyze
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
         {t.skip}
       </a>
       <aside className={`sidebar ${open ? 'is-open' : ''}`}>
-        <Link to="/" className="wordmark" onClick={() => setOpen(false)}>
+        <Link
+          to={localReview ? '/review' : '/'}
+          className="wordmark"
+          onClick={() => setOpen(false)}
+        >
           <span>{t.brandName}</span>
           <small>{t.productName}</small>
         </Link>
         <div className="nav-caption">{t.workspace}</div>
         <nav aria-label={t.navLabel}>
-          <NavLink to="/" end onClick={() => setOpen(false)}>
-            <Icon name="video" />
-            {t.navAnalyze}
-            <Icon name="chevron" size={14} />
-          </NavLink>
-          <NavLink to="/rules" onClick={() => setOpen(false)}>
-            <Icon name="rules" />
-            {t.navRules}
-          </NavLink>
-          <NavLink to="/status" onClick={() => setOpen(false)}>
-            <Icon name="status" />
-            {t.navStatus}
-          </NavLink>
+          {localReview ? (
+            <NavLink to="/review" onClick={() => setOpen(false)}>
+              <Icon name="rules" />
+              {t.navReview}
+            </NavLink>
+          ) : (
+            <>
+              <NavLink to="/" end onClick={() => setOpen(false)}>
+                <Icon name="video" />
+                {t.navAnalyze}
+                <Icon name="chevron" size={14} />
+              </NavLink>
+              <NavLink to="/rules" onClick={() => setOpen(false)}>
+                <Icon name="rules" />
+                {t.navRules}
+              </NavLink>
+              <NavLink to="/status" onClick={() => setOpen(false)}>
+                <Icon name="status" />
+                {t.navStatus}
+              </NavLink>
+            </>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="local-icon">
@@ -73,22 +93,30 @@ function Shell() {
             </div>
           </div>
           <div className="header-meta">
-            <Link to="/status" className={`readiness ${status?.ready ? 'is-ready' : ''}`}>
-              <span className="status-dot" />
-              {error
-                ? t.unavailable
-                : !status
-                  ? t.readinessLoading
-                  : status.ready
-                    ? t.ready
-                    : t.notReady}
-            </Link>
+            {localReview ? (
+              <span className="readiness">
+                <Icon name="lock" size={14} />
+                {reviewText.local}
+              </span>
+            ) : (
+              <Link to="/status" className={`readiness ${status?.ready ? 'is-ready' : ''}`}>
+                <span className="status-dot" />
+                {error
+                  ? t.unavailable
+                  : !status
+                    ? t.readinessLoading
+                    : status.ready
+                      ? t.ready
+                      : t.notReady}
+              </Link>
+            )}
             <span className="prototype-badge">{t.prototype}</span>
           </div>
         </header>
         <main id="main" className="main-content">
           <Routes>
-            <Route path="/" element={<UploadPage />} />
+            <Route path="/" element={localReview ? <ReviewPage /> : <UploadPage />} />
+            <Route path="/review" element={<ReviewPage />} />
             <Route path="/analysis/:jobId" element={<AnalysisPage />} />
             <Route path="/rules" element={<RulesPage />} />
             <Route path="/status" element={<StatusPage />} />
@@ -113,6 +141,7 @@ function Shell() {
   )
 }
 export function App() {
+  if (isLocalReviewHost()) return <Shell />
   return (
     <StatusProvider>
       <Shell />

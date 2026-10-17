@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: 'local-review.spec.ts',
   fullyParallel: false,
   // The real API intentionally permits one synthetic media generation at a time.
   workers: process.env.LIVE_API_URL ? 1 : undefined,

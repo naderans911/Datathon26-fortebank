@@ -2,5 +2,6 @@ node_modules
 dist
 package-lock.json
 test-results
+test-results-review
 playwright-report
 *.tsbuildinfo

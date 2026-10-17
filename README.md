@@ -46,6 +46,22 @@ Run these commands yourself on permitted training/validation footage. They do no
 
 Reports remain local and ignored. Importing metadata does not establish that video files exist, timestamps fit their durations, or a detector is trained. The validation command checks the actual files. See [the actual-format import guide](docs/LABEL_IMPORT.md) for formats, fingerprints and failure categories.
 
+## Local annotation workspace
+
+After local validation, review matched videos on the separate loopback service. It supports video playback, jumping to the supplied point, multiple events, visible observations, optional manually entered boundaries, candidate rule IDs and draft/reviewed status. Source labels and points remain read-only. Candidate legal mappings remain drafts even when an observation is marked reviewed.
+
+```powershell
+$env:ENABLE_LOCAL_REVIEW='true'
+$env:LOCAL_REVIEW_LABELS='C:\Users\YOUR_USER\path\to\datathon26\reports\training\labels-validation.json'
+$env:LOCAL_REVIEW_VIDEO_ROOT='C:\private-data\videos'
+$env:LOCAL_REVIEW_DATA_DIR='C:\private-data\annotations'
+.\.venv\Scripts\python.exe -m uvicorn backend.app.review.app:create_app --factory --env-file .env --host 127.0.0.1 --port 8001 --no-proxy-headers
+```
+
+Open **http://127.0.0.1:8001/review**. Use the actual absolute validation-report path above. Annotations are revisioned local JSON files; simultaneous stale saves are rejected. The review service rejects public hosts, remote clients, forwarded requests and cross-origin writes. Never expose port8001 through a tunnel or mount its routes in the jury app.
+
+For synthetic review tests, run `npm.cmd --prefix frontend run test:review`. The test creates its own synthetic labels/video, starts and stops an isolated review service, and leaves real data untouched.
+
 ## Model and rules
 
 `config/rules.json` contains the supplied rule registry. Its source references and applicability must be reviewed independently of binary training labels. A point label cannot identify a Kazakhstan legal provision. Candidate mappings made during annotation remain drafts.

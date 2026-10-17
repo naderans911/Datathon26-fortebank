@@ -27,7 +27,7 @@ export interface ReviewEvent {
   timecode_sec: number
   observation: string
   interpretation: string
-  rule: Rule
+  rule: Rule | null
   limitations: string[]
   evidence_frames: Evidence[]
 }

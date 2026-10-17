@@ -27,4 +27,16 @@ describe('evidence review', () => {
     expect(screen.getByText(/not proof of complete compliance/)).toBeInTheDocument()
     expect(screen.getAllByText('No mapped events to review').length).toBeGreaterThan(0)
   })
+  it('presents an unclassified candidate without inventing a rule source', () => {
+    render(
+      <Results
+        job={{
+          ...job,
+          result: { ...job.result!, events: [{ ...job.result!.events[0], rule: null }] },
+        }}
+      />,
+    )
+    expect(screen.getByText(/No verified rule mapping; human review required/)).toBeInTheDocument()
+    expect(screen.queryByText('Synthetic demonstration rule')).not.toBeInTheDocument()
+  })
 })
