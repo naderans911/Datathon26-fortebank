@@ -1,0 +1,8 @@
+# Local CV detector (all permissive licenses: BSD / Apache-2.0)
+torch>=2.6
+transformers>=4.50
+huggingface_hub>=0.30
+scikit-learn>=1.5
+numpy>=2.0
+joblib>=1.4
+openpyxl>=3.1

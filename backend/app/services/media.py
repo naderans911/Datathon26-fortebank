@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import bisect
 import json
+import logging
 import math
 import os
 import subprocess
 import tempfile
 import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+# libavutil's expression parser rejects chains deeper than ~100 terms; keep a safe margin.
+SELECT_CHUNK = 48
 
 
 class MediaError(RuntimeError):
@@ -40,8 +45,13 @@ def run_media(args: list[str], deadline: float, *, output_limit: int = 20 * 1024
                 if os.fstat(output.fileno()).st_size > output_limit or os.fstat(errors.fileno()).st_size > 2 * 1024 * 1024:
                     raise MediaError("Media metadata or diagnostic output exceeded the configured limit")
                 time.sleep(0.025)
-            if process.returncode or os.fstat(errors.fileno()).st_size:
+            if process.returncode:
+                logger.warning("%s exited with %s: %s", Path(args[0]).name, process.returncode, _tail(errors))
                 raise MediaError("The video could not be decoded or prepared with the local media tools")
+            if os.fstat(errors.fileno()).st_size:
+                # Non-fatal diagnostics (e.g. recoverable decoder warnings) must not fail a successful run;
+                # callers validate the produced output themselves.
+                logger.info("%s diagnostics: %s", Path(args[0]).name, _tail(errors))
             if os.fstat(output.fileno()).st_size > output_limit:
                 raise MediaError("Media metadata exceeded the configured limit")
             output.seek(0)
@@ -50,6 +60,12 @@ def run_media(args: list[str], deadline: float, *, output_limit: int = 20 * 1024
             if process.poll() is None:
                 process.kill()
             process.wait(timeout=5)
+
+
+def _tail(stream, limit: int = 600) -> str:
+    stream.seek(0)
+    text = stream.read().decode("utf-8", "replace").strip()
+    return text[-limit:]
 
 
 def _finite_number(value, default: float = 0.0) -> float:
@@ -128,14 +144,18 @@ def extract_frames(source: Path, destination: Path, indices: list[int], metadata
     destination.mkdir(parents=True, exist_ok=True)
     if not indices:
         raise MediaError("No frames were selected for analysis")
-    selection = "+".join(f"eq(n\\,{index})" for index in indices)
     width = max(160, min(int(getattr(settings, "sample_width", 640)), 1280))
-    filters = (f"select='{selection}',scale=w='min({width},iw)':h='min({width},ih)':"
-               "force_original_aspect_ratio=decrease:force_divisible_by=2")
+    scale = (f"scale=w='min({width},iw)':h='min({width},ih)':"
+             "force_original_aspect_ratio=decrease:force_divisible_by=2")
     command = [settings.ffmpeg_binary, "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-xerror",
-               "-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,avi", "-threads", "2", "-i", str(source), "-map", "0:v:0",
-               "-an", "-sn", "-dn", "-vf", filters, "-fps_mode", "passthrough", "-frames:v", str(len(indices)),
-               "-q:v", "3", "-threads", "2", str(destination / "frame-%04d.jpg")]
+               "-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,avi", "-threads", "2", "-i", str(source)]
+    # One decode feeds several outputs, each with a short select expression, so long clips stay parseable.
+    for chunk_number, start in enumerate(range(0, len(indices), SELECT_CHUNK)):
+        chunk = indices[start:start + SELECT_CHUNK]
+        selection = "+".join(f"eq(n\\,{index})" for index in chunk)
+        command += ["-map", "0:v:0", "-an", "-sn", "-dn", "-vf", f"select='{selection}',{scale}",
+                    "-fps_mode", "passthrough", "-frames:v", str(len(chunk)), "-q:v", "3", "-threads", "2",
+                    str(destination / f"frame-{chunk_number:03d}-%04d.jpg")]
     run_media(command, deadline)
     files = sorted(destination.glob("frame-*.jpg"))
     if len(files) != len(indices):
