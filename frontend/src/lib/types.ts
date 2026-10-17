@@ -63,6 +63,7 @@ export interface SystemStatus {
   model_available: boolean
   active_verified_rules: number
   reasons: string[]
+  notices?: string[]
   limits: { max_upload_mb: number; max_video_seconds: number }
   demo_enabled: boolean
 }

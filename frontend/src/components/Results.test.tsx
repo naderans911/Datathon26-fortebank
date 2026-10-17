@@ -25,7 +25,7 @@ describe('evidence review', () => {
     )
     expect(screen.getByRole('heading', { name: 'No violation detected' })).toBeInTheDocument()
     expect(screen.getByText(/not proof of complete compliance/)).toBeInTheDocument()
-    expect(screen.getAllByText('No mapped events to review').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('No events to review').length).toBeGreaterThan(0)
   })
   it('presents an unclassified candidate without inventing a rule source', () => {
     render(

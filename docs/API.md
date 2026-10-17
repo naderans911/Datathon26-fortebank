@@ -20,15 +20,17 @@ Both judging routes require the correct backend-configured `X-API-Key`. Keys are
   "status":"done",
   "verdict":"violation",
   "violations":[{
-    "type":"configured event type",
+    "type":"Possible violation (unclassified)",
     "timecode_sec":2.4,
-    "description":"Visible observation, cautious interpretation, verified source, human-review requirement.",
+    "description":"Binary visual candidate. No verified rule mapping or legal basis has been established. Human review required.",
     "evidence_frames":[{"timestamp_sec":2.4,"image_base64":"actual-JPEG-base64-without-data-URL-prefix"}]
   }]
 }
 ```
 
 These snippets document the schema; they are not runtime fixtures. A positive result requires at least one event with one to three genuine JPEG frames. Timestamps are numeric seconds within the original clip duration. Distinct events may share timestamps. Successful verdict values are exactly `no_violation` and `violation`.
+
+The CV adapter emits generic binary candidates; it does not infer an event category or legal provision from organizer binary labels. Its uncalibrated score is a model output, not proof of a visible action. A `no_violation` response means no candidate crossed the configured threshold in the sampled analysis. It is not a guarantee of compliant conduct. The browser's richer event has `rule:null` when no verified mapping exists; the required jury JSON fields remain unchanged.
 
 ```json
 {"job_id":"opaque-id","status":"failed","error":{"code":"deadline_exceeded","message":"The analysis deadline expired. No complete verdict was produced."}}
@@ -51,4 +53,4 @@ curl.exe -X POST http://127.0.0.1:8000/api/v1/analyze -H "X-API-Key: $env:JURY_A
 curl.exe http://127.0.0.1:8000/api/v1/jobs/REPLACE_WITH_JOB_ID -H "X-API-Key: $env:JURY_API_KEY"
 ```
 
-The API key here is passed in process arguments by curl; on a shared machine prefer a private HTTP client that reads it from environment/config internally, as the benchmark script does.
+The API key here is passed in process arguments by curl; on a shared machine prefer a private HTTP client that reads it from environment/config internally. The local benchmark runs the media pipeline directly and does not need the jury key.

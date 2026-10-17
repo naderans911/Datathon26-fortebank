@@ -35,6 +35,12 @@ def get_readiness(settings, store, detector) -> tuple[dict, list]:
     if not detector_ready:
         # Adapter messages are fixed operator guidance; never relay remote errors.
         reasons.append("Configure a licensed local vision model and verify the detector connection.")
+    # Fixed capability guidance is nonblocking; readiness is not an accuracy claim.
+    # Do not relay arbitrary detector messages, which may contain private context.
+    notices = []
+    if getattr(detector, "supports_binary_candidates", False):
+        notices.append("Binary model quality is unvalidated and scores are uncalibrated. "
+                       "Event categories, start/end boundaries and legal applicability require human review.")
     status = {
         "ready": bool(active and ffmpeg and worker_alive and detector_ready),
         "backend_available": True,
@@ -45,6 +51,7 @@ def get_readiness(settings, store, detector) -> tuple[dict, list]:
         "model_available": model_available,
         "active_verified_rules": len(active),
         "reasons": reasons,
+        "notices": notices,
         "limits": {"max_upload_mb": settings.max_upload_mb, "max_video_seconds": settings.max_video_seconds},
         "demo_enabled": settings.enable_demo,
     }

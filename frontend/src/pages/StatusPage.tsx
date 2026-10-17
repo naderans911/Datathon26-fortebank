@@ -66,6 +66,17 @@ export function StatusPage() {
               <p>{status.ready ? t.readyDescription : t.setupDetail}</p>
             </div>
           </div>
+          {!!status.notices?.length && (
+            <div className="inline-notice">
+              <Icon name="alert" size={19} />
+              <div>
+                <strong>{t.modelLimitations}</strong>
+                {status.notices.map((notice, index) => (
+                  <p key={index}>{notice}</p>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="status-layout">
             <section className="card status-table">
               {rows.map((row) => (

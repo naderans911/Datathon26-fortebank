@@ -19,15 +19,14 @@ npm.cmd --prefix frontend run build
 
 The private `.env` contains the generated jury key. Existing settings are preserved. If FFmpeg is not on PATH, set `FFMPEG_BINARY` and `FFPROBE_BINARY` to the two executable paths. No credentials belong in Git or frontend code.
 
-Start the API and worker in separate PowerShell terminals:
+Start the API and worker together, with logs and process ownership recorded locally:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe scripts/serve.py start
+.\.venv\Scripts\python.exe scripts/serve.py status
 ```
 
-```powershell
-.\.venv\Scripts\python.exe -m backend.app.workers.runner
-```
+Use `scripts/serve.py restart` after changing code or configuration, and `scripts/serve.py stop` to stop managed services. Restart refuses to interrupt active uploads or analyses. The controller never stops unrelated Python processes.
 
 Open **http://127.0.0.1:8000** on that computer. The local API base is **http://127.0.0.1:8000/api/v1**. A localhost link is not reachable from another computer. GitHub stores the source; it does not host this Python/video application.
 
@@ -68,6 +67,33 @@ For synthetic review tests, run `npm.cmd --prefix frontend run test:review`. The
 
 Local CV inference uses RT-DETR and DINOv2 feature models plus a private fitted scorer. Official feature weights alone are not a cashier-violation classifier. The previous scorer is retained on the existing development machine but is no longer distributed in the current Git tree. Fresh installations must supply a trusted compatible scorer or train one locally. See [model/rule configuration](docs/RULES.md) and [architecture](docs/ARCHITECTURE.md).
 
+Install the tested CPU inference dependencies and pinned official feature weights:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.9.1 torchvision==0.24.1
+.\.venv\Scripts\python.exe -m pip install -r requirements-ml.txt
+.\.venv\Scripts\python.exe scripts/download_models.py
+```
+
+In private `.env`, set `DETECTOR_BACKEND=cv`, `CV_MODEL_DIR=./models`, `CV_DEVICE=cpu`, `CV_NUM_THREADS=2`, `SAMPLING_FPS=2` and `MAX_SAMPLE_FRAMES=600`. Set `CV_SCORER_DIR` to an explicitly selected versioned scorer directory; when omitted, the trusted legacy `models/scorer.joblib` is used if available. Do not load untrusted joblib files. The legacy scorer requires scikit-learn 1.9.1. The classifier returns a binary candidate, not an event category or verified legal finding. Synthetic execution is tested; real banking accuracy is not established.
+
+## Local training and held-out evaluation
+
+Run these commands yourself with permitted local data. First prepare separate training and held-out label exports and video directories after checking recording/session groups. Keep every clip from a video in one split; never infer sessions from filename numbering. The proposed 30/6/6 class allocation is not an approved split.
+
+```powershell
+.\.venv\Scripts\python.exe scripts/validate_labels.py C:\private-data\train-labels.json --video-dir C:\private-data\train-videos --output reports\training\train-validation.json
+.\.venv\Scripts\python.exe scripts/extract_features.py C:\private-data\train-videos --labels C:\private-data\train-labels.json --dataset-split training --device cpu --fps 2 --max-frames 600 --output-dir cache\features
+.\.venv\Scripts\python.exe scripts/train.py C:\private-data\train-labels.json --features-dir cache\features\training --output-dir models\scorers --run-id reviewed-v1 --groups C:\private-data\groups.json
+.\.venv\Scripts\python.exe scripts/evaluate.py --data C:\private-data\held-out-videos --labels C:\private-data\held-out-labels.json --dataset-split validation --scorer-dir models\scorers\reviewed-v1 --groups C:\private-data\groups.json --device cpu --report reports\training\evaluation-v1.json
+```
+
+The explicit group manifest is `{"schema_version":1,"groups":{"X-1":"session-a","X-2":"session-b"}}`; replace these synthetic examples with reviewed session membership for every included video. If groups are unknown, omit `--groups` and retain that limitation: recording independence is unverified. Evaluation refuses known video-content or group overlap with the saved training manifest and never tunes the threshold using evaluation labels. Do not use judging videos in these commands.
+
+Training writes a new version directory containing the scorer, preprocessing/threshold metadata and source fingerprints; it refuses to overwrite an existing version. Activate a reviewed model by setting `CV_SCORER_DIR=./models/scorers/reviewed-v1` and restarting. The current trainer uses only the nearest supported point sample for positives and excludes other frames of positive clips as unknown. Explicit negatives supply negative samples. Review intervals/types are saved separately and are **not yet consumed by this trainer**. No real-data import, retraining or held-out accuracy evaluation was performed by the coding agent.
+
+Measure the complete local media/inference pipeline on generated footage with `.\.venv\Scripts\python.exe scripts/benchmark.py --synthetic-seconds 8 --device cpu`. This measures that input on that machine, not a guarantee for longer clips. Timeouts and failed processing return failed jobs, never a negative verdict.
+
 Synthetic demo examples are opt-in with `ENABLE_DEMO=true`; they demonstrate the interface and do not validate detection accuracy. Missing models and processing failures must not produce a negative verdict. Restart both API and worker after changing `.env`.
 
 ## Jury API
@@ -78,6 +104,14 @@ Both endpoints require `X-API-Key`:
 - `GET /api/v1/jobs/{job_id}`: processing, failed, or done with `violation` / `no_violation`.
 
 A successful positive result includes actual JPEG base64 evidence. Failed jobs have no successful verdict. See [the exact contract](docs/API.md). `/docs` and `/openapi.json` are served locally without external CDN assets. Deliver the private key separately to judges; never put it in a public README or URL.
+
+For a temporary external jury link, install the official `cloudflared` binary, set an explicit `RETENTION_HOURS` in `.env`, and run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/serve.py start --public
+```
+
+The command prints the HTTPS web URL; append `/api/v1` for the jury API base. It uses a separate production-configured API on loopback port 8002 with secure browser cookies. The local annotation service is never tunneled. The link changes when the tunnel restarts and works only while this computer, internet connection and managed processes remain running. See [deployment and restart commands](docs/DEPLOYMENT.md).
 
 ## Development checks
 

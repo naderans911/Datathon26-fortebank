@@ -1,6 +1,3 @@
-#!/bin/bash
-# Container entry point: worker in the background, API in the foreground on the Space port.
-cd /app
-python -m backend.app.workers.runner &
-exec python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 7860 \
-  --proxy-headers --forwarded-allow-ips='*'
+#!/bin/sh
+printf '%s\n' 'Unsupported: Hugging Face deployment is retired. Use scripts/serve.py for native local services.' >&2
+exit 2

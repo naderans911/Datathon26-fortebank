@@ -22,7 +22,8 @@ export const t = {
   ready: 'Local engine ready',
   notReady: 'Setup required',
   unavailable: 'Backend unavailable',
-  readyDescription: 'The configured local detector, worker and verified rules are available.',
+  readyDescription:
+    'The configured local components are available. Readiness does not validate detection quality or legal applicability.',
   checkStatus: 'View system status',
   refresh: 'Refresh status',
   retry: 'Try again',
@@ -68,13 +69,16 @@ export const t = {
     { title: 'Upload', body: 'Choose a cashier video. The server checks its format and duration.' },
     {
       title: 'Analyze locally',
-      body: 'Review visible activity against your configured, verified rules.',
+      body: 'Use the configured local detector to identify moments for human review.',
     },
-    { title: 'Review evidence', body: 'Inspect timestamps, source frames and rule references.' },
+    {
+      title: 'Review evidence',
+      body: 'Inspect timestamps, source frames and any supplied rule references.',
+    },
   ],
   scopeTitle: 'Built for careful review',
   scopeBody:
-    'Observable actions, documented sources and clear limitations. Every finding stays open to human interpretation.',
+    'Sampled video, review candidates and clear limitations. A model flag does not establish an action category or a legal violation.',
   demoLink: 'Explore the synthetic demo',
   processingTitle: 'Review in progress',
   processingBody: 'Your video is being processed by the local analysis service.',
@@ -107,12 +111,12 @@ export const t = {
   positive: 'Signs of possible violations detected',
   negative: 'No violation detected',
   negativeQualifier:
-    'No indicators were detected under the configured rules and analysis coverage. This is not proof of complete compliance.',
+    'No indicators were detected under the configured detector, threshold and sampling coverage. This is not proof of complete compliance.',
   resultTitle: 'Evidence review',
   resultEyebrow: 'ANALYSIS RESULT',
   newAnalysis: 'New analysis',
   reviewRequired: 'Human review required',
-  noEvents: 'No mapped events to review',
+  noEvents: 'No events to review',
   noEventsBody: 'Review the analysis coverage and limitations before drawing a conclusion.',
   events: 'Detected events',
   eventsCount: (n: number) => `${n} ${n === 1 ? 'event' : 'events'} to review`,
@@ -121,7 +125,7 @@ export const t = {
   noPreview: 'A browser-compatible preview is unavailable.',
   originalEvidence: 'Evidence frames are extracted from the original video.',
   timeline: 'Event timeline',
-  selectEvent: 'Select an event to inspect its evidence and rule source.',
+  selectEvent: 'Select an event to inspect its evidence and any supplied rule source.',
   eventLabel: (type: string, time: string, index: number) =>
     `Event ${index + 1}: ${type} at ${time}`,
   eventReviewLabel: (type: string, time: string, index: number) =>
@@ -154,13 +158,14 @@ export const t = {
   rulesEyebrow: 'LOCAL KNOWLEDGE',
   rulesTitle: 'Rules & sources',
   rulesDescription:
-    'The approved context behind each finding. Runtime analysis uses this local registry.',
+    'Supplied source records and their recorded verification status. Binary model candidates do not establish a rule mapping; source accuracy and applicability require independent review.',
   searchRules: 'Search rules, sources or visible conditions',
   rulesEmpty: 'No rules registered',
   rulesEmptyBody:
     'Add reviewed rule definitions to the local registry. Real analysis requires at least one enabled, verified rule.',
   noMatches: 'No matching rules',
-  rulesReadOnly: 'Read-only registry · Edit validated local configuration to update rules.',
+  rulesReadOnly:
+    'Read-only registry · Verification badges reflect stored metadata, not a new legal review.',
   visibleCondition: 'Visible condition',
   requiredContext: 'Required context',
   status: { verified: 'Verified', draft: 'Draft', disabled: 'Disabled' },
@@ -181,6 +186,7 @@ export const t = {
   notRunning: 'No recent heartbeat',
   unconfigured: 'Unconfigured',
   prerequisites: 'Next steps',
+  modelLimitations: 'Model limitations',
   configuredLimits: 'Configured upload limits',
   privacyStatus:
     'Only operational status is shown here. API credentials and storage locations remain private.',

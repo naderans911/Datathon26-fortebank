@@ -1,16 +1,18 @@
----
-title: ForteBank Cash Review
-emoji: 🏦
-colorFrom: blue
-colorTo: green
-sdk: docker
-app_port: 7860
-pinned: false
----
+# Retired Hugging Face deployment
 
-AI-сервис проверки кассовой дисциплины по видео (Datathon 26 · ForteBank).
-Все модели (RT-DETR r18, DINOv2-small, обученный скорер) работают внутри контейнера на CPU;
-внешние AI/API при обработке видео не используются.
+This deployment is unsupported. The former uploader copied local models and
+configuration into a public Space repository. The uploader, container build and
+startup entry point are disabled; they do not publish files or start services.
 
-API: `POST /api/v1/analyze` (multipart `file`, заголовок `X-API-Key`) → `{job_id}`;
-`GET /api/v1/jobs/{job_id}` → `{status, verdict, violations[...]}`.
+Keep training videos, organizer labels, annotations, caches and trained artifacts
+local. Use the native service controller to explicitly share the analysis app:
+
+```sh
+python scripts/serve.py start --public
+```
+
+This exposes the running analysis app through an HTTPS tunnel. It does not upload
+the project or training files to a Space. The separate annotation reviewer stays
+local. The local machine and tunnel must remain running for access.
+
+For service controls, run `python scripts/serve.py --help`.

@@ -1,35 +1,50 @@
 # Validation record
 
-## Actual-label and local-review update
+Validated on 18 October 2026 local time, on Windows with Python 3.13.0, Node.js 24.19.0, npm 11.17.0 and FFmpeg/ffprobe 9.0.2. The machine has two CPU cores and approximately 8 GB RAM. All test inputs were generated synthetic fixtures. No organizer workbook, competition footage, real extracted frames or video-derived descriptions were opened by the coding agent.
 
-- Actual-format importer/resolver/validation: **53 synthetic tests passed**, including generated XLSX and MOV fixtures. Russian timestamps, null negatives, unknown labels, preserved Unicode, exact-before-alias matching, ambiguity/duplicate rejection, numbering gaps, source comparison and timestamp bounds are covered.
-- Separate local annotation server: **16 tests passed**, including loopback/Host/Origin/forwarded-request restrictions, session/CSRF, persistent multi-event saves, stale-revision rejection, media range access and path boundaries.
-- Frontend: **15 component tests passed**, TypeScript/ESLint/format and production build passed. Isolated local-review browser tests **2 passed** at desktop/mobile widths; existing upload/results browser regression **4 passed**.
-- Synthetic review screenshots were inspected at both widths. No organizer workbook, real footage or video-derived descriptions were read for these tests. Real-data matching, duration and annotation review remain local operator work.
-
-The original foundation record follows. New inference/runtime validation is recorded separately when completed.
-
-Validated on Windows with Python 3.13.0, Node.js 24.19.0, npm 11.17.0 and a checksum-verified FFmpeg/ffprobe 9.0.2 build. All video inputs were locally generated synthetic fixtures. No competition footage or observations were inspected or transmitted.
+## Automated checks
 
 | Check | Result |
 | --- | --- |
-| `python -m pytest -q` | 52 passed, 1 skipped in 19.10 seconds |
-| `python -m ruff check backend scripts` | Passed |
-| `python -m pip check` | Passed; no broken dependency requirements |
-| Live API + worker smoke over HTTP | Passed: heartbeat, honest unconfigured readiness, offline docs, positive/negative/failed synthetic demos, protected JPEG/MP4, judge/demo isolation, terminal deletion |
-| Frontend TypeScript checks, ESLint and production build | Passed |
-| Frontend component tests | 10 passed across four files |
-| Required npm dependency/peer consistency | `npm ls --all --omit=optional` passed |
-| Desktop/mobile browser checks | 6 passed: four isolated UI checks and two connected API checks |
+| Backend synthetic suite | 162 passing tests, 1 optional local vision-model test skipped |
+| Ruff over `backend` and `scripts` | Passed |
+| Python dependency consistency (`pip check`) | Passed |
+| Frontend component tests | 16 passed |
+| TypeScript, ESLint, formatting and production build | Passed |
+| Upload/results browser regression | 4 passed at desktop/mobile widths |
+| Isolated local annotation browser checks | 2 passed at desktop/mobile widths |
+| GitHub Actions, milestones 1–3 | Successful for `3790b54`, `8a938a5`, `54430b4` |
 
-Backend tests exercise the exact judge contract through both endpoints with injected test-only detectors and real MOV/JPEG extraction; positive and negative verdicts; multiple simultaneous events; malformed files/model output; ownership/CSRF; missing prerequisites; queue/storage limits; expired queued jobs; child-process termination at the deadline; rule snapshots; cleanup; offline documentation; VFR, source start PTS and rotation; demo isolation; local endpoint restrictions; unknown frame/rule references; and explicit overflow failures.
+The backend total combines a full run of 152 passes/one skip and ten subsequently added readiness/controller cases, all passing. The skipped test needs an optional Ollama vision model; CV execution was verified separately below. One upstream Starlette TestClient deprecation warning does not affect the results.
 
-Browser checks use installed Chrome at 1440×1000 and 390×844. They cover keyboard access and dialog focus, disabled real upload when prerequisites are missing, no horizontal overflow, refresh recovery, independently selectable simultaneous events, matching selected-event observations, actual JPEG loading, decoded video playback and preview seeking, and connected positive/negative/failed synthetic states. Connected tests delete the generated jobs and run serially to respect the demo generation guard. Screenshots were inspected at both widths and remain in ignored local output folders. Repeated local browser runs used a process-only demo rate limit of 60/hour; the shipped default remains 12/hour.
+Coverage includes Russian whole-string timestamp parsing (`1минута 8 секунда` → 68), blank negatives, explicit zero, exact binary labels, raw Unicode preservation, exact-match priority, unique/ambiguous aliases, duplicate mapping rejection, numbering gaps, normalized source comparison, duration/timestamp checks, multiple revisioned local annotations and public isolation. Training checks cover unknown positive-clip samples, whole-video and explicit recording-group separation, fixed held-out thresholds, overlap rejection, versioned artifacts and inference isolation from label readers.
 
-The one skipped test requires an installed local vision model (`LOCAL_VISION_MODEL` is unset). It does not count as inference validation. One upstream Starlette TestClient deprecation warning was emitted about a future HTTP client migration; it did not affect the passing tests.
+API tests exercise both binary outcomes with injected synthetic detectors, actual MOV/JPEG extraction, generic null-rule candidates, multiple events, malformed input, ownership/CSRF, wrong keys, missing readiness, queue/storage limits, deadlines and child termination. Controller tests ensure active uploads/analyses cannot be interrupted by restart or tunnel-origin changes, and that shutdown uses the persisted database and holds an admission lock.
 
-The dependency inventory records 29 Python packages and 315 frontend lockfile entries, with declared licenses for every entry. Runtime frontend license texts are retained in `frontend/THIRD_PARTY_LICENSES.json`. This inventory does not approve an unspecified model or replace the notices required when distributing dependencies.
+## Actual CV execution on synthetic inputs
 
-The Windows FFmpeg archive matched the [build provider's published SHA-256](https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip.sha256): `60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba`. Binaries and generated media remain ignored locally.
+The installed CPU runtime uses torch 2.9.1+cpu, torchvision 0.24.1+cpu, transformers 4.57.3 and scikit-learn 1.9.1. The last version matches the trusted legacy scorer's serialization; an incompatible version failed explicitly during setup and was corrected. Official RT-DETR/DINOv2 weights were downloaded at pinned revisions and SHA-256 checked. Neither feature weights nor the private scorer are included in the current Git tree.
 
-Real model inference, banking detection accuracy, unseen camera-angle performance, GPU throughput, deployment-container execution, public HTTPS access, and target-host offline behavior have not been validated. A source push does not deploy the application.
+| End-to-end check | Observed result |
+| --- | --- |
+| Cold offline feature/scorer execution on three generated JPEGs | Completed in 18.255 seconds, zero candidates |
+| Local jury HTTP upload, generated eight-second MOV | HTTP 202, processing, done; `no_violation`, zero candidates; 56.554 seconds |
+| Public HTTPS jury HTTP upload, same generated MOV | HTTP 202, processing, done; exact successful JSON schema; 47.533 seconds |
+| Public browser upload, generated eight-second MOV | Actual CV result completed in 42.935 seconds; `no_violation`, zero candidates |
+| Missing or incorrect jury key | HTTP 401 |
+| Public annotation API path | HTTP 404 |
+| Local service controller | Starts API/worker, confirms fresh heartbeat, stops and restarts its owned processes |
+
+These measurements include upload/poll overhead for the HTTP tests. They prove that the real model path executes and returns a binary result on those generated inputs. They do not establish banking accuracy, positive-event recall, legal applicability, calibration, or the runtime of longer footage. Positive evidence and failed-job behavior are covered by synthetic injected-detector tests; an actual positive banking example was not evaluated.
+
+The public browser check verified the visible model-quality notice, upload acceptance, refresh recovery, terminal result, decoded video playback, secure HttpOnly session cookies, inaccessible annotation API and deletion of the owned synthetic job. Desktop and mobile screenshots were inspected with no horizontal overflow. Screenshots and the local verification report remain in ignored `.local/qa/`.
+
+At two sampled frames per second, long videos may exceed the 285-second queue-and-processing deadline on this CPU. Such work returns a failed state, never a clean verdict. Benchmark the intended footage locally before relying on timing; no longest-clip extrapolation or five-minute performance guarantee is made.
+
+## Remaining local validation
+
+Run the README import/validation commands against the supplied workbook and real videos locally. The supplied 42-row audit is metadata only; actual file presence, alias resolution, media duration and timestamp bounds have not been certified. Review event types, observations, boundaries and candidate rule mappings in the separate local screen. Keep all rule applicability decisions as drafts until checked against the original legal source.
+
+Prepare group-independent splits, train a new versioned scorer on permitted training data and run fixed-threshold held-out evaluation. The legacy scorer's quality and training supervision remain unvalidated. Review intervals/types are stored but are not consumed by the current point-supervised trainer. Judging footage must not enter training or tuning.
+
+GPU execution, Docker deployment, independent firewall-isolated operation, unseen camera views and sustained public hosting have not been validated. A quick-tunnel link is temporary and requires the computer to stay awake and online. The dependency inventory records 56 Python and 315 frontend package entries; see [licenses](LICENSES.md) for artifact versions and notices.
