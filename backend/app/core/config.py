@@ -13,7 +13,10 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "production"] = "development"
     jury_api_key: str = Field(default="", repr=False)
-    detector_backend: Literal["unconfigured", "ollama"] = "unconfigured"
+    detector_backend: Literal["unconfigured", "ollama", "cv"] = "unconfigured"
+    cv_model_dir: Path = Path("./models")
+    cv_device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
+    cv_threshold: float | None = Field(None, gt=0, lt=1)
     ollama_base_url: str = "http://127.0.0.1:11434"
     local_vision_model: str = ""
     allowed_ollama_hosts: list[str] = Field(default_factory=list)
@@ -49,7 +52,7 @@ class Settings(BaseSettings):
     def empty_retention(cls, value):
         return None if value == "" else value
 
-    @field_validator("storage_dir", "rules_file", "frontend_dist")
+    @field_validator("storage_dir", "rules_file", "frontend_dist", "cv_model_dir")
     @classmethod
     def absolute_paths(cls, value: Path) -> Path:
         return value.resolve()

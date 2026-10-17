@@ -45,3 +45,5 @@ reports/
 .cache/
 .DS_Store
 Thumbs.db
+cache/
+logs/

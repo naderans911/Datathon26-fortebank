@@ -1,4 +1,19 @@
-# Forte Cash Review
+# Datathon 26 · ForteBank — AI-проверка кассовой дисциплины по видео
+
+**Полное описание решения: [docs/SOLUTION.md](docs/SOLUTION.md)** (архитектура, модели, нормативная база, типы нарушений, ограничения).
+
+Быстрый старт на macOS (Apple Silicon):
+
+```bash
+bash scripts/mac_setup.sh   # установка + веса моделей (один раз)
+bash scripts/run_mac.sh     # сервис + публичная ссылка для жюри
+```
+
+Детектор `DETECTOR_BACKEND=cv` работает полностью локально: RT-DETR + DINOv2 + обученный временной классификатор. Правила взяты из постановления НБРК № 231 (`config/rules.json`).
+
+---
+
+## Forte Cash Review (base platform)
 
 A connected, local-first video review prototype for the ForteBank Datathon 26 case. Upload a cashier video, follow persistent processing stages, and inspect timestamped findings, actual JPEG evidence and the source interpretation behind each finding. A human inspector makes the final assessment.
 
