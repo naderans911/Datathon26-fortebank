@@ -1,104 +1,62 @@
-"""Training-time helpers: same frame sampling as the live pipeline + label loading."""
+"""Training-only metadata compatibility and source-aligned frame sampling.
+
+No production/jury inference module should import organizer label helpers.
+"""
 from __future__ import annotations
 
-import csv
-import json
-import re
-import time
 from pathlib import Path
+import time
 
 from backend.app.services.media import extract_frames, probe_video, sample_indices
-
-VIDEO_EXT = {".mov", ".mp4", ".avi", ".mkv", ".m4v"}
+from backend.app.training.labels import LabelDataError, import_labels, matching_key, parse_timestamp
+from backend.app.training.resolver import list_videos as _list_videos
 
 
 def list_videos(directory: Path) -> list[Path]:
-    return sorted(p for p in Path(directory).rglob("*") if p.suffix.lower() in VIDEO_EXT and p.is_file())
+    return _list_videos(directory)
 
 
 def norm_stem(name) -> str:
-    """'Х-3.mov' (Cyrillic Х) and 'x-3' both -> 'X-3'."""
-    stem = Path(str(name).strip()).stem.upper()
-    return stem.translate(str.maketrans("ХАВСЕКМНОРТУ", "XABCEKMHOPTY"))
+    """Known leading Cyrillic Х/Latin X lookup hint only; preserve all other text."""
+    return matching_key(str(name))
 
 
 def parse_time(value) -> float | None:
-    """Accept 11, 11.5, '11', '0:11', '00:00:11', '11s', '11 сек'."""
-    if value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    text = str(value).strip().lower().replace(",", ".")
-    if not text or text in {"-", "nan", "none", "нет"}:
-        return None
-    minutes = re.search(r"(\d+(?:\.\d+)?)\s*(?:мин|min|м\b)", text)
-    seconds = re.search(r"(\d+(?:\.\d+)?)\s*(?:сек|sec|s\b|с\b)", text)
-    if minutes:
-        return float(minutes.group(1)) * 60 + (float(seconds.group(1)) if seconds else 0.0)
-    if ":" in text:
-        parts = [float(p) for p in re.findall(r"\d+(?:\.\d+)?", text)]
-        seconds = 0.0
-        for part in parts:
-            seconds = seconds * 60 + part
-        return seconds
-    match = re.search(r"\d+(?:\.\d+)?", text)
-    return float(match.group()) if match else None
+    """Strict whole-input Russian units or numeric seconds; missing stays null."""
+    return parse_timestamp(value)
 
 
 def load_labels(path: Path) -> dict[str, list[float]]:
-    """Return {video_stem: [timestamps]}; an empty list means 'no violation'.
+    """Compatibility view of strict actual-format labels.
 
-    Supports JSON ({"clip.mov": [11, 40]} or a list of records) and CSV/TSV/XLSX
-    with columns resembling video/file/name, time/timecode/sec, label/violation.
+    Only an explicitly negative source label becomes an empty list. Missing,
+    unsupported, inconsistent and duplicate labels raise before training. Prefer
+    import_labels + the local resolver for richer metadata and verified matches.
     """
-    path = Path(path)
-    records: list[dict] = []
-    if path.suffix.lower() == ".json":
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(data, dict):
-            out = {}
-            for name, value in data.items():
-                values = value if isinstance(value, list) else [value]
-                out[norm_stem(name)] = [t for t in (parse_time(v) for v in values) if t is not None]
-            return out
-        records = list(data)
-    elif path.suffix.lower() in {".xlsx", ".xls"}:
-        import openpyxl
-        sheet = openpyxl.load_workbook(path, read_only=True).active
-        rows = list(sheet.iter_rows(values_only=True))
-        header = [str(h or "").strip().lower() for h in rows[0]]
-        records = [dict(zip(header, row)) for row in rows[1:]]
-    else:
-        text = path.read_text(encoding="utf-8-sig")
-        dialect = csv.Sniffer().sniff(text[:2048], delimiters=",;\t")
-        records = [{(k or "").strip().lower(): v for k, v in row.items()} for row in csv.DictReader(text.splitlines(), dialect=dialect)]
-
-    def pick(row: dict, *keys):
-        for key in row:
-            if any(k in key for k in keys):
-                return row[key]
-        return None
-
-    out: dict[str, list[float]] = {}
-    for row in records:
-        name = pick(row, "video", "file", "name", "видео", "файл", "clip")
-        if not name:
-            continue
-        stem = norm_stem(name)
-        out.setdefault(stem, [])
-        label = pick(row, "label", "violation", "наруш", "метк", "class")
-        is_negative = label is not None and str(label).strip().lower() in {"0", "false", "no", "нет", "норма", "no_violation", "без нарушения"}
-        t = parse_time(pick(row, "time", "timecode", "sec", "врем", "секунд", "тайм", "ts"))
-        if t is not None and not is_negative:
-            out[stem].append(t)
-    return out
+    imported = import_labels(path)
+    if not imported.valid:
+        raise LabelDataError("Label import failed validation; run the local label validator and review its report.")
+    output = {}
+    for record in imported.records:
+        key = norm_stem(record["filename_raw"])
+        if key in output:
+            raise LabelDataError("Alias lookup keys collide; resolve actual files and review the mapping before training.")
+        if record["has_violation"] is False:
+            output[key] = []
+        elif record["has_violation"] is True and record["timestamp_sec"] is not None:
+            output[key] = [record["timestamp_sec"]]
+        else:
+            raise LabelDataError("An unknown label or missing positive timestamp cannot become a negative example.")
+    return output
 
 
 class SampleSettings:
-    """Mirror of the live sampling settings (keep in sync with .env)."""
+    """Sampling settings for local feature preparation, separate from inference."""
 
     def __init__(self, fps: float = 2.0, max_frames: int = 400, width: int = 640):
-        self.ffmpeg_binary, self.ffprobe_binary = "ffmpeg", "ffprobe"
+        from backend.app.core.config import Settings
+        configured = Settings()
+        self.ffmpeg_binary, self.ffprobe_binary = configured.ffmpeg_binary, configured.ffprobe_binary
         self.sampling_fps, self.max_sample_frames, self.sample_width = fps, max_frames, width
         self.max_video_seconds = 3600
 
