@@ -25,6 +25,17 @@ bash scripts/run_mac.sh     # API + воркер + публичный тунне
 
 `run_mac.sh` печатает публичный адрес `https://….trycloudflare.com` и сохраняет его в `logs/public_url.txt`. API-ключ лежит в `.env` (`JURY_API_KEY`). Скрипт можно запускать повторно: старые процессы останавливаются сами. Если туннель оборвётся, он перезапустится, но **адрес сменится** — актуальный всегда в `logs/public_url.txt`. Mac должен оставаться включённым, в сети и с открытой крышкой.
 
+Обученный скорер `models/scorer.joblib` лежит в репозитории, поэтому на другом Mac достаточно двух команд выше: веса RT-DETR и DINOv2 `mac_setup.sh` скачает сам.
+
+**Облако без ноутбука (Hugging Face Docker Space, нужна подписка PRO):**
+
+```bash
+.venv/bin/hf auth login                    # токен с правом Write
+.venv/bin/python scripts/deploy_hf.py      # -> https://<user>-fortebank-cash-review.hf.space
+```
+
+Скрипт собирает образ из `deploy/hf/` (API + воркер в одном контейнере, CPU, `HF_HUB_OFFLINE=1`), а ключ жюри передаёт как секрет Space. Ролик 142 c на CPU с 2 потоками обрабатывается примерно за 45–130 c.
+
 Обучение на датасете (видео и `open_labels.xlsx` лежат в `../data`):
 
 ```bash
