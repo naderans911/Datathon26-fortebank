@@ -1,0 +1,60 @@
+services:
+  api:
+    build: .
+    image: forte-cash-review:local
+    env_file: .env
+    environment: &app-environment
+      STORAGE_DIR: /app/storage
+      RULES_FILE: /app/config/rules.json
+      FFMPEG_BINARY: ffmpeg
+      FFPROBE_BINARY: ffprobe
+      OLLAMA_BASE_URL: http://ollama:11434
+      ALLOWED_OLLAMA_HOSTS: '["ollama"]'
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes: &app-volumes
+      - review-data:/app/storage
+      - ./config:/app/config:ro
+    networks:
+      - local-analysis
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  worker:
+    build: .
+    image: forte-cash-review:local
+    env_file: .env
+    environment: *app-environment
+    command: ["python", "-m", "backend.app.workers.runner"]
+    volumes: *app-volumes
+    networks:
+      - local-analysis
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-m", "backend.app.workers.runner", "--check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ollama:
+    image: ollama/ollama:0.40.5
+    profiles: ["local-model"]
+    environment:
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_HOST: "0.0.0.0:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - local-analysis
+    restart: unless-stopped
+
+networks:
+  local-analysis:
+    internal: true
+volumes:
+  review-data:
+  ollama-models:

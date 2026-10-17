@@ -1,0 +1,21 @@
+[
+  {
+    "id": "SYNTHETIC-ZONE-ONLY",
+    "title": "Synthetic marked-area demonstration",
+    "event_type": "Shape crosses the marked area",
+    "jurisdiction": "Synthetic fixture — no legal jurisdiction",
+    "source_type": "synthetic",
+    "document_title": "Forte Cash Review synthetic demo specification",
+    "source_url": null,
+    "section_or_paragraph": null,
+    "relevant_excerpt": "For UI demonstration only, flag a colored shape shown inside the outlined area.",
+    "observed_condition": "A generated colored shape is visible within a generated outlined area.",
+    "required_context": ["Locally generated synthetic demonstration footage only"],
+    "interpretation": "This illustrates how a reviewer can compare an observation with a recorded rule. It is not a cashier procedure or legal finding.",
+    "limitations": ["Synthetic rule; never applicable to real uploaded videos", "No banking detection has been evaluated"],
+    "verification_status": "draft",
+    "verified_at": null,
+    "enabled": false,
+    "version": "demo-1"
+  }
+]
