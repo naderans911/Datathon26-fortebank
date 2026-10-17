@@ -3,6 +3,9 @@
 # Safe to re-run: stale instances from a previous start are stopped first.
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $env:HF_HUB_OFFLINE = "1"; $env:TRANSFORMERS_OFFLINE = "1"
+# Detector stride chosen by scripts\benchmark.py (read from the environment, not by the settings loader).
+$stride = Select-String -Path .env -Pattern "^CV_DET_STRIDE=(\d+)" | Select-Object -First 1
+if ($stride) { $env:CV_DET_STRIDE = $stride.Matches[0].Groups[1].Value; Write-Host "CV_DET_STRIDE=$env:CV_DET_STRIDE" }
 $py = (Resolve-Path ".\.venv\Scripts\python.exe").Path
 New-Item -ItemType Directory -Force logs | Out-Null
 

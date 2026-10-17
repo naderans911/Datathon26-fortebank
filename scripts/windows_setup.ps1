@@ -35,6 +35,9 @@ Write-Host ">> Downloading model weights (one time, ~160 MB)"
 & $py scripts\download_models.py
 if ($LASTEXITCODE -ne 0) { throw "model download failed" }
 
+Write-Host ">> Speed check (about 1 minute)"
+& $py scripts\benchmark.py
+
 Write-Host ">> Keeping the PC awake while plugged in"
 powercfg /change standby-timeout-ac 0
 powercfg /change hibernate-timeout-ac 0
