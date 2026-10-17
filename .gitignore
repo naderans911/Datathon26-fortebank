@@ -37,7 +37,6 @@ storage/*
 *.onnx
 data/
 datasets/
-models/
 reports/
 *.log
 *.zip
@@ -47,3 +46,5 @@ reports/
 Thumbs.db
 cache/
 logs/
+models/*
+!models/scorer.joblib
