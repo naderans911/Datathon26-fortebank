@@ -23,13 +23,14 @@ bash scripts/mac_setup.sh   # один раз: Python, FFmpeg, Node, cloudflared
 bash scripts/run_mac.sh     # API + воркер + публичный туннель; Mac не уходит в сон
 ```
 
-`run_mac.sh` печатает публичный адрес `https://….trycloudflare.com`. API-ключ лежит в `.env` (`JURY_API_KEY`).
+`run_mac.sh` печатает публичный адрес `https://….trycloudflare.com` и сохраняет его в `logs/public_url.txt`. API-ключ лежит в `.env` (`JURY_API_KEY`). Скрипт можно запускать повторно: старые процессы останавливаются сами. Если туннель оборвётся, он перезапустится, но **адрес сменится** — актуальный всегда в `logs/public_url.txt`. Mac должен оставаться включённым, в сети и с открытой крышкой.
 
 Обучение на датасете (видео и `open_labels.xlsx` лежат в `../data`):
 
 ```bash
 .venv/bin/python scripts/extract_features.py ../data        # кадры 2 к/с + признаки, кэш в cache/
 .venv/bin/python scripts/train.py ../data/open_labels.xlsx  # кросс-валидация, порог, модель -> models/scorer.joblib
+# параметры по умолчанию (LR C=1.0, PCA 16, pos-tol 4 c) воспроизводят выложенную модель
 ```
 
 ## 3. Архитектура

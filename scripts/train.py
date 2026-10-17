@@ -23,7 +23,7 @@ from backend.app.ml.dataset import load_labels, norm_stem  # noqa: E402
 from backend.app.ml.scorer import SCORER_FILE, build_matrix, peaks, smooth  # noqa: E402
 
 
-def make_model(kind: str, C: float = 0.05, pca: int = 0):
+def make_model(kind: str, C: float = 1.0, pca: int = 16):
     from sklearn.decomposition import PCA
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import make_pipeline
@@ -40,12 +40,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("labels", type=Path)
     ap.add_argument("--types", type=Path, default=ROOT / "config" / "event_types.json")
-    ap.add_argument("--pos-tol", type=float, default=2.0, help="frames within +-N s of a label are positive")
-    ap.add_argument("--ignore-tol", type=float, default=4.0, help="frames in (pos, ignore] are dropped")
+    ap.add_argument("--pos-tol", type=float, default=4.0, help="frames within +-N s of a label are positive")
+    ap.add_argument("--ignore-tol", type=float, default=6.0, help="frames in (pos, ignore] are dropped")
     ap.add_argument("--model", choices=["lr", "hgb"], default="lr")
     ap.add_argument("--folds", type=int, default=5)
-    ap.add_argument("--C", type=float, default=0.05, help="inverse regularisation for --model lr")
-    ap.add_argument("--pca", type=int, default=0, help="PCA components before the classifier (0 = off)")
+    ap.add_argument("--C", type=float, default=1.0, help="inverse regularisation for --model lr")
+    ap.add_argument("--pca", type=int, default=16, help="PCA components before the classifier (0 = off)")
     args = ap.parse_args()
 
     labels = load_labels(args.labels)
