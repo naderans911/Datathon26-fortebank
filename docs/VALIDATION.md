@@ -30,14 +30,14 @@ The installed CPU runtime uses torch 2.9.1+cpu, torchvision 0.24.1+cpu, transfor
 | Cold offline feature/scorer execution on three generated JPEGs | Completed in 18.255 seconds, zero candidates |
 | Local jury HTTP upload, generated eight-second MOV | HTTP 202, processing, done; `no_violation`, zero candidates; 56.554 seconds |
 | Public HTTPS jury HTTP upload, same generated MOV | HTTP 202, processing, done; exact successful JSON schema; 47.533 seconds |
-| Public browser upload, generated eight-second MOV | Actual CV result completed in 42.935 seconds; `no_violation`, zero candidates |
+| Public browser upload, generated eight-second MOV | Actual CV result completed in 42.935 seconds; repeat with explicit seek check in 48.228 seconds; `no_violation`, zero candidates |
 | Missing or incorrect jury key | HTTP 401 |
 | Public annotation API path | HTTP 404 |
 | Local service controller | Starts API/worker, confirms fresh heartbeat, stops and restarts its owned processes |
 
 These measurements include upload/poll overhead for the HTTP tests. They prove that the real model path executes and returns a binary result on those generated inputs. They do not establish banking accuracy, positive-event recall, legal applicability, calibration, or the runtime of longer footage. Positive evidence and failed-job behavior are covered by synthetic injected-detector tests; an actual positive banking example was not evaluated.
 
-The public browser check verified the visible model-quality notice, upload acceptance, refresh recovery, terminal result, decoded video playback, secure HttpOnly session cookies, inaccessible annotation API and deletion of the owned synthetic job. Desktop and mobile screenshots were inspected with no horizontal overflow. Screenshots and the local verification report remain in ignored `.local/qa/`.
+The public browser check verified the visible model-quality notice, upload acceptance, refresh recovery, terminal result, decoded video playback and seeking to four seconds, secure HttpOnly session cookies, inaccessible annotation API and deletion of the owned synthetic job. Desktop (1440×1000) and mobile (390×844) screenshots were inspected with no horizontal overflow. Screenshots and the local verification report remain in ignored `.local/qa/`.
 
 At two sampled frames per second, long videos may exceed the 285-second queue-and-processing deadline on this CPU. Such work returns a failed state, never a clean verdict. Benchmark the intended footage locally before relying on timing; no longest-clip extrapolation or five-minute performance guarantee is made.
 

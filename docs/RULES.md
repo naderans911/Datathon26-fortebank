@@ -8,7 +8,7 @@ Operational readiness currently requires at least one enabled entry marked verif
 
 ## Binary CV findings and rule-backed observations
 
-The local CV backend combines RT-DETR and DINOv2 features with a fitted binary scorer. Feature weights alone are not a cashier-violation detector. Scores above the configured threshold produce generic **`Possible violation (unclassified)`** candidates at sampled source timestamps. The internal observation has `rule_id: null`; the rich review result has `rule: null`. The judging response retains its existing schema and does not add a rule-ID field.
+The local CV backend combines RT-DETR and DINOv2 features with a fitted binary scorer. Feature weights alone are not a cashier-violation detector. Scores meeting or exceeding the configured threshold produce generic **`Possible violation (unclassified)`** candidates at sampled source timestamps. The internal observation has `rule_id: null`; the rich review result has `rule: null`. The judging response retains its existing schema and does not add a rule-ID field.
 
 The binary scorer does not infer an action category, an event's start/end boundaries or an applicable legal provision. Its scores are uncalibrated. Neighboring evidence frames and groups of candidate samples provide review context; they are not annotated event intervals. Legacy type heads are not used. A CV candidate can produce the contract's `violation` verdict while remaining a human-review candidate, not a legal determination.
 
